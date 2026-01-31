@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # --- THE BRAIN (n8n) ---
+  n8n:
+    image: n8n/n8n:latest
+    container_name: n8n_orchestrator
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_SECURE_COOKIE=false
+      - GENERIC_TIMEZONE=America/New_York
+      - N8N_HOST=n8n
+      - WEBHOOK_URL=http://localhost:5678/
+      # Pass the API Key to n8n for the AI Agent Node
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+      # MOUNT POINT: This gives n8n access to your local files
+      - ./data:/home/node/data_files
+    networks:
+      - sentry_net
+    restart: unless-stopped
+
+  # --- THE FACE (Streamlit) ---
+  streamlit_ui:
+    build: ./streamlit
+    container_name: sentry_dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # Internal URL for Docker networking
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/kyc-check
+    volumes:
+      # Live Edit: Changes to app.py appear instantly without rebuilding
+      - ./streamlit/app.py:/app/app.py
+    networks:
+      - sentry_net
+    depends_on:
+      - n8n
+
+networks:
+  sentry_net:
+    driver: bridge
